@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Mic, Camera, Send, StopCircle, RefreshCw, VolumeX } from 'lucide-react';
+import { Mic, Camera, Send, RefreshCw, VolumeX } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 // --- 型定義 ---
 type Message = {
@@ -15,9 +19,18 @@ type InputMode = 'IDLE' | 'CAMERA' | 'IMAGE_CONFIRM' | 'RECORDING_AUDIO' | 'PROC
 type ChatScreenProps = {
   initialSessionId: string | null;
   onSessionUpdate?: () => void;
+  examType: 'junior-high' | 'high-school'; // ★ 追加
+  grade: string; // ★ 追加
+  onSyncSettings?: (examType: 'junior-high' | 'high-school', grade: string) => void; // ★ 追加
 };
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSessionUpdate }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({ 
+  initialSessionId, 
+  onSessionUpdate,
+  examType,
+  grade,
+  onSyncSettings
+}) => {
   // --- 状態管理 ---
   const [messages, setMessages] = useState<Message[]>([]);
   const [mode, setMode] = useState<InputMode>('IDLE');
@@ -26,6 +39,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
   // メディア関連の状態
   const [capturedImages, setCapturedImages] = useState<string[]>([]); // ★ 複数画像用のState
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [explanationLevel, setExplanationLevel] = useState<'detail' | 'hint'>('detail');
 
   // 参照 (Refs)
   const webcamRef = useRef<Webcam>(null);
@@ -43,6 +57,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
           const res = await fetch(`http://localhost:8080/api/sessions/${initialSessionId}`);
           if (res.ok) {
             const data = await res.json();
+
+            // 親コンポーネントの設定と同期
+            if (data.session && onSyncSettings) {
+              const sType = data.session.exam_type as 'junior-high' | 'high-school';
+              const sGrade = data.session.grade;
+              if (sType && sGrade) {
+                onSyncSettings(sType, sGrade);
+              }
+            }
+
             const formattedMessages: Message[] = data.messages.map((m: any) => ({
               id: m.id,
               role: m.role,
@@ -71,12 +95,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
 
   // IDLE状態から最初にカメラを起動するとき（画像をリセット）
   const handleStartCameraFromIdle = () => {
+    stopAiAudio(); // ★ 自動停止
     setCapturedImages([]);
     setMode('CAMERA');
   };
 
   // 1枚撮ったあとに「追加撮影」するとき（画像を維持）
   const handleAddMoreCamera = () => {
+    stopAiAudio(); // ★ 自動停止
     setMode('CAMERA');
   };
 
@@ -94,6 +120,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
   };
 
   const handleStartRecording = async () => {
+    stopAiAudio(); // ★ 自動停止
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -147,6 +174,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
     }
 
     if (sessionId) formData.append('session_id', sessionId);
+    formData.append('exam_type', examType);
+    formData.append('grade', grade);
+    formData.append('explanation_level', explanationLevel);
 
     try {
       const response = await fetch('http://localhost:8080/api/chat', {
@@ -205,7 +235,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
                 m.id === userMsgId ? { ...m, text: data.user_text } : m
               ));
               if (data.session_id && !sessionId) setSessionId(data.session_id);
+              
+              if (data.exam_type && data.grade && onSyncSettings) {
+                onSyncSettings(data.exam_type, data.grade);
+              }
             } 
+
             else if (data.type === 'text') {
               aiText += data.content;
               setMessages(prev => prev.map(m => 
@@ -282,7 +317,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
                   </div>
                 )}
                 
-                <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
+                <div className="whitespace-pre-wrap leading-relaxed markdown-content">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {msg.text}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           ))
@@ -291,6 +333,50 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ initialSessionId, onSess
       </main>
 
       <footer className="bg-white border-t p-4 pb-8">
+        {/* ★ 読み上げ中の停止バナーをフッター最上部に配置 */}
+        {isPlayingAudio && (
+          <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 max-w-md mx-auto shadow-sm">
+            <span className="text-xs text-blue-800 font-bold flex items-center">
+              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full mr-2 animate-ping"></span>
+              AIが回答を読み上げています...
+            </span>
+            <button 
+              onClick={stopAiAudio}
+              className="flex items-center bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow"
+            >
+              <VolumeX className="w-3.5 h-3.5 mr-1" /> 読み上げ停止
+            </button>
+          </div>
+        )}
+
+        {/* ★ 解説レベルトグルスイッチ */}
+        {mode !== 'PROCESSING' && (
+          <div className="flex justify-center mb-4">
+            <div className="bg-gray-100 p-1 rounded-xl flex gap-1 border border-gray-200 shadow-inner">
+              <button
+                onClick={() => setExplanationLevel('detail')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center transition-all cursor-pointer ${
+                  explanationLevel === 'detail'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📖 くわしく解説
+              </button>
+              <button
+                onClick={() => setExplanationLevel('hint')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center transition-all cursor-pointer ${
+                  explanationLevel === 'hint'
+                    ? 'bg-amber-500 text-white shadow'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                💡 ヒントだけ
+              </button>
+            </div>
+          </div>
+        )}
+
         {mode === 'IDLE' && (
           <div className="flex justify-center gap-4">
             <button onClick={handleStartRecording} className="flex flex-col items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-2xl w-32 h-24 transition shadow-lg">

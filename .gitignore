@@ -32,4 +32,8 @@ build/
 # Python bytecode
 __pycache__/
 *.py[cod]
-data/
+backend/data/
+**/api.json
+for_agent/
+AICHANGELOG.md
+Plan.md

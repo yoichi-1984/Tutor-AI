@@ -42,21 +42,22 @@ LOCATION = "global"
 # Vertex AIとして実行するため vertexai=True を指定
 client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
 
-ROUTER_MODEL = "gemini-3.1-flash-lite-preview"
-MAIN_MODEL = "gemini-3.1-flash-lite-preview"
+ROUTER_MODEL = "gemini-3.1-flash-lite"
+MAIN_MODEL = "gemini-3.1-flash-lite"
 #gemini-3.1-pro-preview
 
 # -------------------------------------------------------------------
 # 1. ルーターAI (ドメイン判定 & 自動カテゴライズ)
 # -------------------------------------------------------------------
-def check_domain_and_categorize(text: str, image_bytes_list: list = None) -> dict:
+def check_domain_and_categorize(text: str, image_bytes_list: list = None, exam_type: str = "junior-high") -> dict:
+    categories = ["国語", "算数", "理科", "社会", "その他"] if exam_type == "junior-high" else ["国語", "数学", "理科", "社会", "英語", "その他"]
     schema = {
         "type": "OBJECT",
         "properties": {
             "is_subject_related": {"type": "BOOLEAN"},
             "category": {
                 "type": "STRING",
-                "enum": ["国語", "算数", "理科", "社会", "その他"]
+                "enum": categories
             },
             "title": {  # ★この項目を追加
                 "type": "STRING", 
@@ -72,7 +73,9 @@ def check_domain_and_categorize(text: str, image_bytes_list: list = None) -> dic
         for img_bytes in image_bytes_list:
             contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
 
-    router_prompt = f"{prompts['router_ai']['system_prompt']}\nユーザーの質問: {text}"
+    exam_type_str = "中学受験" if exam_type == "junior-high" else "高校受験"
+    system_prompt_formatted = prompts['router_ai']['system_prompt'].format(exam_type=exam_type_str)
+    router_prompt = f"{system_prompt_formatted}\nユーザーの質問: {text}"
     contents.append(router_prompt)
 
     config = types.GenerateContentConfig(
@@ -92,7 +95,7 @@ def check_domain_and_categorize(text: str, image_bytes_list: list = None) -> dic
 # -------------------------------------------------------------------
 # 2. メインAI (回答のストリーミング生成)
 # -------------------------------------------------------------------
-def generate_answer_stream(text: str, image_bytes_list: list = None, chat_history: list = None):
+def generate_answer_stream(text: str, image_bytes_list: list = None, chat_history: list = None, exam_type: str = "junior-high", grade: str = "小6", explanation_level: str = "detail"):
     contents = []
 
     if chat_history:
@@ -106,10 +109,17 @@ def generate_answer_stream(text: str, image_bytes_list: list = None, chat_histor
 
     contents.append(types.Content(role="user", parts=[types.Part.from_text(text=text)]))
 
+    exam_type_str = "中学受験" if exam_type == "junior-high" else "高校受験"
+    explanation_inst = prompts['main_ai']['explanation_instructions'].get(explanation_level, "")
+    system_instruction_formatted = prompts['main_ai']['system_instruction'].format(
+        exam_type=exam_type_str,
+        grade=grade,
+        explanation_instruction=explanation_inst
+    )
+
     config = types.GenerateContentConfig(
         temperature=0.2,
-        # YAMLからメインAIのシステム指示を読み込み
-        system_instruction=prompts['main_ai']['system_instruction'],
+        system_instruction=system_instruction_formatted,
         tools=[{"google_search": {}}],
         thinking_config={"thinking_level": "low"}
     )
