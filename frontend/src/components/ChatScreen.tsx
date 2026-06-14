@@ -30,7 +30,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onSessionUpdate,
   examType,
   grade,
-  isMirrored = false,
+  isMirrored = true,
   onSyncSettings
 }) => {
   // --- 状態管理 ---
