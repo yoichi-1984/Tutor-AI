@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Mic, Camera, Send, RefreshCw, VolumeX } from 'lucide-react';
+import { Mic, Camera, Send, RefreshCw, VolumeX, XCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -150,6 +150,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
     }
+  };
+
+  // ★ 追加: 入力キャンセル処理
+  const handleCancel = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.onstop = null; // 送信トリガーを解除
+      if (mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (mediaRecorderRef.current.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    }
+    setMode('IDLE');
+    setCapturedImages([]);
   };
 
   // --- API通信 (FastAPIとのSSEストリーミング処理) ---
@@ -393,19 +408,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         )}
 
         {mode === 'CAMERA' && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative w-full max-w-md rounded-lg overflow-hidden border-4 border-emerald-500">
+          <div className="flex flex-col items-center gap-4 w-full max-w-md mx-auto">
+            <div className="relative w-full rounded-lg overflow-hidden border-4 border-emerald-500">
               <Webcam 
                 audio={false} 
                 ref={webcamRef} 
                 screenshotFormat="image/jpeg" 
                 videoConstraints={{ facingMode: "environment" }} 
                 mirrored={isMirrored} 
+                className="w-full h-auto"
               />
             </div>
-            <button onClick={handleCaptureImage} className="bg-emerald-500 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center">
-              <Camera className="mr-2" /> 撮影する
-            </button>
+            <div className="flex gap-4 w-full justify-center">
+              <button 
+                onClick={handleCancel} 
+                className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center transition cursor-pointer"
+              >
+                <XCircle className="mr-2 w-5 h-5" /> キャンセル
+              </button>
+              <button 
+                onClick={handleCaptureImage} 
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center justify-center flex-1 transition cursor-pointer"
+              >
+                <Camera className="mr-2" /> 撮影する
+              </button>
+            </div>
           </div>
         )}
 
@@ -419,13 +446,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
             
             <div className="flex flex-wrap justify-center gap-3">
-              <button onClick={handleAddMoreCamera} className="bg-emerald-500 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow">
+              <button 
+                onClick={handleCancel} 
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow transition cursor-pointer"
+              >
+                <XCircle className="mr-1 w-4 h-4" /> キャンセル
+              </button>
+              <button 
+                onClick={handleAddMoreCamera} 
+                className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow transition cursor-pointer"
+              >
                 <Camera className="mr-1 w-4 h-4" /> 追加撮影
               </button>
-              <button onClick={handleResetImages} className="bg-gray-500 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow">
+              <button 
+                onClick={handleResetImages} 
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow transition cursor-pointer"
+              >
                 <RefreshCw className="mr-1 w-4 h-4" /> 撮り直す
               </button>
-              <button onClick={handleStartRecording} className="bg-blue-500 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow">
+              <button 
+                onClick={handleStartRecording} 
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-full font-bold flex items-center text-sm shadow transition cursor-pointer"
+              >
                 <Mic className="mr-1 w-4 h-4" /> 音声で質問
               </button>
             </div>
@@ -433,13 +475,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         )}
 
         {mode === 'RECORDING_AUDIO' && (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 w-full max-w-md mx-auto">
             <div className="text-red-500 font-bold animate-pulse flex items-center">
               <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div> 録音中... お話しください
             </div>
-            <button onClick={handleStopAndSend} className="bg-blue-600 text-white w-full max-w-md py-4 rounded-xl font-bold flex justify-center items-center shadow-lg">
-              <Send className="mr-2" /> 音声送信
-            </button>
+            <div className="flex gap-4 w-full justify-center">
+              <button 
+                onClick={handleCancel} 
+                className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-4 rounded-xl font-bold shadow-lg flex items-center justify-center transition cursor-pointer"
+              >
+                <XCircle className="mr-2 w-5 h-5" /> キャンセル
+              </button>
+              <button 
+                onClick={handleStopAndSend} 
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-1 py-4 rounded-xl font-bold flex justify-center items-center shadow-lg transition cursor-pointer"
+              >
+                <Send className="mr-2" /> 音声送信
+              </button>
+            </div>
           </div>
         )}
 
