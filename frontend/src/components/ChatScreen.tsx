@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Mic, Camera, Send, RefreshCw, VolumeX, XCircle } from 'lucide-react';
+import { Mic, Camera, Send, RefreshCw, VolumeX, XCircle, Play, Pause } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -41,6 +41,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // メディア関連の状態
   const [capturedImages, setCapturedImages] = useState<string[]>([]); // ★ 複数画像用のState
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isPausedAudio, setIsPausedAudio] = useState(false); // ★ 音声一時停止中のState
   const [explanationLevel, setExplanationLevel] = useState<'detail' | 'hint'>('detail');
 
   // 参照 (Refs)
@@ -288,17 +289,44 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const audio = new Audio(url);
     aiAudioRef.current = audio;
 
-    audio.onplay = () => setIsPlayingAudio(true);
-    audio.onended = () => setIsPlayingAudio(false);
-    audio.onpause = () => setIsPlayingAudio(false);
+    audio.onplay = () => {
+      setIsPlayingAudio(true);
+      setIsPausedAudio(false);
+    };
+    audio.onended = () => {
+      setIsPlayingAudio(false);
+      setIsPausedAudio(false);
+    };
 
+    setIsPausedAudio(false);
     audio.play();
+  };
+
+  const pauseAiAudio = () => {
+    if (aiAudioRef.current && !aiAudioRef.current.paused) {
+      aiAudioRef.current.pause();
+      setIsPlayingAudio(false);
+      setIsPausedAudio(true);
+    }
+  };
+
+  const resumeAiAudio = () => {
+    if (aiAudioRef.current && aiAudioRef.current.paused) {
+      aiAudioRef.current.play().then(() => {
+        setIsPlayingAudio(true);
+        setIsPausedAudio(false);
+      }).catch(err => {
+        console.error("音声の再生再開に失敗しました", err);
+      });
+    }
   };
 
   const stopAiAudio = () => {
     if (aiAudioRef.current) {
       aiAudioRef.current.pause();
+      aiAudioRef.current.currentTime = 0;
       setIsPlayingAudio(false);
+      setIsPausedAudio(false);
     }
   };
 
@@ -307,10 +335,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     <div className="flex flex-col h-screen max-w-3xl mx-auto bg-gray-50 font-sans">
       <header className="bg-blue-600 text-white p-4 text-center shadow-md flex justify-between items-center">
         <h1 className="text-xl font-bold">家庭教師AI</h1>
-        {isPlayingAudio && (
-          <button onClick={stopAiAudio} className="flex items-center bg-red-500 hover:bg-red-600 px-3 py-1 rounded-full text-sm font-bold transition">
-            <VolumeX className="w-4 h-4 mr-1" /> 音声停止
-          </button>
+        {(isPlayingAudio || isPausedAudio) && (
+          <div className="flex gap-2">
+            {isPlayingAudio ? (
+              <button onClick={pauseAiAudio} className="flex items-center bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded-full text-xs font-bold transition">
+                <Pause className="w-3.5 h-3.5 mr-1" /> 一時停止
+              </button>
+            ) : (
+              <button onClick={resumeAiAudio} className="flex items-center bg-green-500 hover:bg-green-600 px-3 py-1 rounded-full text-xs font-bold transition">
+                <Play className="w-3.5 h-3.5 mr-1" /> 再開
+              </button>
+            )}
+            <button onClick={stopAiAudio} className="flex items-center bg-red-500 hover:bg-red-600 px-3 py-1 rounded-full text-xs font-bold transition">
+              <VolumeX className="w-3.5 h-3.5 mr-1" /> 停止
+            </button>
+          </div>
         )}
       </header>
 
@@ -350,19 +389,45 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       </main>
 
       <footer className="bg-white border-t p-4 pb-8">
-        {/* ★ 読み上げ中の停止バナーをフッター最上部に配置 */}
-        {isPlayingAudio && (
+        {/* ★ 読み上げ中または一時停止中のバナーをフッター最上部に配置 */}
+        {(isPlayingAudio || isPausedAudio) && (
           <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 max-w-md mx-auto shadow-sm">
             <span className="text-xs text-blue-800 font-bold flex items-center">
-              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full mr-2 animate-ping"></span>
-              AIが回答を読み上げています...
+              {isPlayingAudio ? (
+                <>
+                  <span className="w-2.5 h-2.5 bg-blue-600 rounded-full mr-2 animate-ping"></span>
+                  AIが回答を読み上げています...
+                </>
+              ) : (
+                <>
+                  <span className="w-2.5 h-2.5 bg-amber-500 rounded-full mr-2"></span>
+                  読み上げを一時停止しています
+                </>
+              )}
             </span>
-            <button 
-              onClick={stopAiAudio}
-              className="flex items-center bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow"
-            >
-              <VolumeX className="w-3.5 h-3.5 mr-1" /> 読み上げ停止
-            </button>
+            <div className="flex gap-2">
+              {isPlayingAudio ? (
+                <button 
+                  onClick={pauseAiAudio}
+                  className="flex items-center bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow"
+                >
+                  <Pause className="w-3.5 h-3.5 mr-1" /> 一時停止
+                </button>
+              ) : (
+                <button 
+                  onClick={resumeAiAudio}
+                  className="flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow"
+                >
+                  <Play className="w-3.5 h-3.5 mr-1" /> 再開
+                </button>
+              )}
+              <button 
+                onClick={stopAiAudio}
+                className="flex items-center bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow"
+              >
+                <VolumeX className="w-3.5 h-3.5 mr-1" /> 停止
+              </button>
+            </div>
           </div>
         )}
 
