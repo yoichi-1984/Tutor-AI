@@ -417,6 +417,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 videoConstraints={{ facingMode: "environment" }} 
                 mirrored={isMirrored} 
                 className="w-full h-auto"
+                style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
               />
             </div>
             <div className="flex gap-4 w-full justify-center">
