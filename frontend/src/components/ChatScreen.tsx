@@ -21,6 +21,7 @@ type ChatScreenProps = {
   onSessionUpdate?: () => void;
   examType: 'junior-high' | 'high-school'; // ★ 追加
   grade: string; // ★ 追加
+  isMirrored?: boolean; // ★ 追加
   onSyncSettings?: (examType: 'junior-high' | 'high-school', grade: string) => void; // ★ 追加
 };
 
@@ -29,6 +30,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onSessionUpdate,
   examType,
   grade,
+  isMirrored = false,
   onSyncSettings
 }) => {
   // --- 状態管理 ---
@@ -398,7 +400,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 ref={webcamRef} 
                 screenshotFormat="image/jpeg" 
                 videoConstraints={{ facingMode: "environment" }} 
-                mirrored={false} 
+                mirrored={isMirrored} 
               />
             </div>
             <button onClick={handleCaptureImage} className="bg-emerald-500 text-white px-8 py-3 rounded-full font-bold shadow-lg flex items-center">

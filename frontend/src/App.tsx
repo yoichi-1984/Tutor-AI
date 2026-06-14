@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChatScreen } from './components/ChatScreen';
-import { MessageSquare, PlusCircle, Folder } from 'lucide-react';
+import { MessageSquare, PlusCircle, Folder, FlipHorizontal } from 'lucide-react';
 
 type SessionMeta = {
   id: string;
@@ -16,6 +16,7 @@ function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [examType, setExamType] = useState<'junior-high' | 'high-school'>('junior-high');
   const [grade, setGrade] = useState<string>('小6');
+  const [isMirrored, setIsMirrored] = useState<boolean>(false);
   
   // ★ 追加: ChatScreenを強制リセットするためのキー
   const [chatKey, setChatKey] = useState<string>('new'); 
@@ -121,6 +122,25 @@ function App() {
             </select>
           </div>
 
+          {/* カメラ左右反転設定 */}
+          <div className="flex items-center justify-between text-xs px-1 py-1">
+            <span className="text-gray-400 flex items-center">
+              <FlipHorizontal className="w-3.5 h-3.5 mr-1" /> カメラ左右反転:
+            </span>
+            <button
+              onClick={() => setIsMirrored(!isMirrored)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                isMirrored ? 'bg-blue-600' : 'bg-gray-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  isMirrored ? 'translate-x-5' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           <button 
             onClick={handleNewChat}
             className="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
@@ -174,6 +194,7 @@ function App() {
           onSessionUpdate={() => fetchSessions(examType)} 
           examType={examType}
           grade={grade}
+          isMirrored={isMirrored}
           onSyncSettings={(type, gr) => {
             setExamType(type);
             setGrade(gr);
