@@ -105,8 +105,18 @@ function App() {
     // 設定をロードしたセッションに同期
     const session = sessions.find(s => s.id === id);
     if (session) {
-      if (session.exam_type) setExamType(session.exam_type as 'junior-high' | 'high-school');
-      if (session.grade) setGrade(session.grade);
+      const updates: { exam_type?: string; grade?: string } = {};
+      if (session.exam_type) {
+        setExamType(session.exam_type as 'junior-high' | 'high-school');
+        updates.exam_type = session.exam_type;
+      }
+      if (session.grade) {
+        setGrade(session.grade);
+        updates.grade = session.grade;
+      }
+      if (Object.keys(updates).length > 0) {
+        saveConfig(updates);
+      }
     }
   };
 
@@ -241,6 +251,7 @@ function App() {
           onSyncSettings={(type, gr) => {
             setExamType(type);
             setGrade(gr);
+            saveConfig({ exam_type: type, grade: gr });
           }}
         />
       </main>

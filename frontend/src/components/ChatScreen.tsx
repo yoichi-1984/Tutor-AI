@@ -30,7 +30,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onSessionUpdate,
   examType,
   grade,
-  isMirrored = true,
+  isMirrored = false,
   onSyncSettings
 }) => {
   // --- 状態管理 ---
@@ -415,7 +415,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 ref={webcamRef} 
                 screenshotFormat="image/jpeg" 
                 videoConstraints={{ facingMode: "environment" }} 
-                mirrored={isMirrored} 
+                mirrored={false} 
                 className="w-full h-auto"
                 style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
               />
@@ -442,7 +442,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             {/* ★ 撮影した複数の画像を横並びでプレビュー */}
             <div className="flex gap-2 overflow-x-auto p-2 w-full max-w-md">
               {capturedImages.map((src, idx) => (
-                <img key={idx} src={src} alt={`Captured ${idx}`} className="h-32 w-auto rounded-lg border-2 border-gray-300 object-contain" />
+                <img 
+                  key={idx} 
+                  src={src} 
+                  alt={`Captured ${idx}`} 
+                  className="h-32 w-auto rounded-lg border-2 border-gray-300 object-contain transition" 
+                  style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
+                />
               ))}
             </div>
             
