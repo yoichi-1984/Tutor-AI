@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import yaml
 import uuid
 from typing import List
 from pathlib import Path
@@ -21,6 +22,9 @@ from .database import init_db, get_db, SessionLocalJH, SessionLocalHS, ChatSessi
 # -------------------------------------------------------------------
 # アプリケーション初期化とディレクトリ設定
 # -------------------------------------------------------------------
+# 設定ファイル (default.yaml) のパス
+CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "default.yaml"
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 USER_AUDIO_DIR = DATA_DIR / "user_audio"
 USER_IMAGE_DIR = DATA_DIR / "user_images"
@@ -339,3 +343,51 @@ async def get_file(file_type: str, filename: str):
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path, media_type=media_type)
+
+# -------------------------------------------------------------------
+# 4. APIエンドポイント: 設定の保存と取得
+# -------------------------------------------------------------------
+@app.get("/api/config")
+async def get_config():
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+                return data if data else {
+                    "exam_type": "junior-high",
+                    "grade": "小6",
+                    "is_mirrored": False
+                }
+        except Exception:
+            pass
+    return {
+        "exam_type": "junior-high",
+        "grade": "小6",
+        "is_mirrored": False
+    }
+
+@app.post("/api/config")
+async def update_config(config: dict):
+    try:
+        current_config = {
+            "exam_type": "junior-high",
+            "grade": "小6",
+            "is_mirrored": False
+        }
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f)
+                    if data:
+                        current_config.update(data)
+            except Exception:
+                pass
+        
+        current_config.update(config)
+        
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            yaml.safe_dump(current_config, f, allow_unicode=True, default_flow_style=False)
+            
+        return {"status": "success", "config": current_config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

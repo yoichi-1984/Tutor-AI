@@ -16,21 +16,42 @@ function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [examType, setExamType] = useState<'junior-high' | 'high-school'>('junior-high');
   const [grade, setGrade] = useState<string>('小6');
-  const [isMirrored, setIsMirrored] = useState<boolean>(() => {
-    return localStorage.getItem('isMirrored') === 'true';
-  });
+  const [isMirrored, setIsMirrored] = useState<boolean>(false);
   
   // ★ 追加: ChatScreenを強制リセットするためのキー
   const [chatKey, setChatKey] = useState<string>('new'); 
 
+  const saveConfig = async (updates: { exam_type?: string; grade?: string; is_mirrored?: boolean }) => {
+    try {
+      await fetch('http://localhost:8080/api/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+    } catch (error) {
+      console.error("設定の保存に失敗しました", error);
+    }
+  };
+
+  const handleGradeChange = (newGrade: string) => {
+    setGrade(newGrade);
+    saveConfig({ grade: newGrade });
+  };
+
+  const handleToggleMirrored = () => {
+    const nextVal = !isMirrored;
+    setIsMirrored(nextVal);
+    saveConfig({ is_mirrored: nextVal });
+  };
+
   const handleExamTypeChange = (type: 'junior-high' | 'high-school') => {
     setExamType(type);
-    if (type === 'junior-high') {
-      setGrade('小6');
-    } else {
-      setGrade('中3');
-    }
+    const defaultGrade = type === 'junior-high' ? '小6' : '中3';
+    setGrade(defaultGrade);
     fetchSessions(type);
+    saveConfig({ exam_type: type, grade: defaultGrade });
   };
 
   const fetchSessions = async (currentExamType: 'junior-high' | 'high-school') => {
@@ -48,6 +69,26 @@ function App() {
 
   useEffect(() => {
     fetchSessions(examType);
+
+    const loadConfig = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/config');
+        if (response.ok) {
+          const config = await response.json();
+          if (config) {
+            if (config.exam_type) {
+              setExamType(config.exam_type);
+              fetchSessions(config.exam_type);
+            }
+            if (config.grade) setGrade(config.grade);
+            if (typeof config.is_mirrored === 'boolean') setIsMirrored(config.is_mirrored);
+          }
+        }
+      } catch (error) {
+        console.error("設定のロードに失敗しました", error);
+      }
+    };
+    loadConfig();
   }, []);
 
   const handleNewChat = () => {
@@ -104,7 +145,7 @@ function App() {
             <span className="text-gray-400">対象学年:</span>
             <select
               value={grade}
-              onChange={(e) => setGrade(e.target.value)}
+              onChange={(e) => handleGradeChange(e.target.value)}
               className="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
             >
               {examType === 'junior-high' ? (
@@ -130,11 +171,7 @@ function App() {
               <FlipHorizontal className="w-3.5 h-3.5 mr-1" /> カメラ左右反転:
             </span>
             <button
-              onClick={() => {
-                const nextVal = !isMirrored;
-                setIsMirrored(nextVal);
-                localStorage.setItem('isMirrored', String(nextVal));
-              }}
+              onClick={handleToggleMirrored}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
                 isMirrored ? 'bg-blue-600' : 'bg-gray-700'
               }`}
