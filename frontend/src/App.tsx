@@ -16,7 +16,9 @@ function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [examType, setExamType] = useState<'junior-high' | 'high-school'>('junior-high');
   const [grade, setGrade] = useState<string>('小6');
-  const [isMirrored, setIsMirrored] = useState<boolean>(false);
+  const [isMirrored, setIsMirrored] = useState<boolean>(() => {
+    return localStorage.getItem('isMirrored') === 'true';
+  });
   
   // ★ 追加: ChatScreenを強制リセットするためのキー
   const [chatKey, setChatKey] = useState<string>('new'); 
@@ -128,7 +130,11 @@ function App() {
               <FlipHorizontal className="w-3.5 h-3.5 mr-1" /> カメラ左右反転:
             </span>
             <button
-              onClick={() => setIsMirrored(!isMirrored)}
+              onClick={() => {
+                const nextVal = !isMirrored;
+                setIsMirrored(nextVal);
+                localStorage.setItem('isMirrored', String(nextVal));
+              }}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
                 isMirrored ? 'bg-blue-600' : 'bg-gray-700'
               }`}
