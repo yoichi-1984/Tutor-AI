@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-python-multipart
-google-cloud-speech
-google-cloud-texttospeech
-google-genai
-pyyaml
