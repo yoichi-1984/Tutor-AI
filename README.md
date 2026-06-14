@@ -30,7 +30,7 @@ graph TD
     subgraph "Google Cloud Platform"
         STT[Speech-to-Text<br>音声認識]
         TTS[Text-to-Speech<br>音声合成]
-        Vertex[Vertex AI<br>Gemini 1.5]
+        Vertex[Vertex AI<br>Gemini 3.x]
     end
     
     BE -->|1. 音声送信| STT
